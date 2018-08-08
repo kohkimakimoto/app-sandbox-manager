@@ -1,0 +1,1 @@
+BOIO_OPTS="--config-file=/etc/boio/config.toml"

@@ -1,0 +1,24 @@
+[Unit]
+Description=Boio
+Documentation=https://github.com/kohkimakimoto/boio
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+WorkingDirectory=/
+User=boio
+Group=boio
+EnvironmentFile=-/etc/sysconfig/boio
+ExecStart=/usr/bin/boio serve $BOIO_OPTS
+StandardOutput=journal
+StandardError=inherit
+
+# Disable timeout logic and wait until process is stopped
+TimeoutStopSec=0
+
+KillSignal=SIGTERM
+SendSIGKILL=no
+SuccessExitStatus=0
+
+[Install]
+WantedBy=multi-user.target

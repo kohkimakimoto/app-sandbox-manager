@@ -1,0 +1,333 @@
+#!/usr/bin/env python
+from __future__ import division, print_function, absolute_import, unicode_literals
+import argparse
+import os
+import sys
+import subprocess
+import platform
+from datetime import datetime
+from string import Template
+try:
+    import configparser as ConfigParser
+except ImportError:
+    # fallback for python2
+    import ConfigParser
+
+# general functions
+def abort(s):
+    print(colors.red + s + colors.reset, file=sys.stderr)
+    sys.exit(1)
+
+# classes for pseudo-namespaces.
+class runtime:
+    @staticmethod
+    def v3():
+        return sys.version_info >= (3,)
+
+    @staticmethod
+    def v2():
+        return sys.version_info < (3,)
+
+    @staticmethod
+    def darwin():
+        return platform.system() == 'Darwin'
+
+class colors:
+    bold = '\033[1m'
+    underlined = '\033[4m'
+
+    black = '\033[30m'
+    red = '\033[31m'
+    green = '\033[32m'
+    yellow = '\033[33m'
+    blue = '\033[34m'
+    magenta = '\033[35m'
+    cyan = '\033[36m'
+    lightgray = '\033[37m'
+    darkgray = '\033[90m'
+    lightred = '\033[91m'
+    lightgreen = '\033[92m'
+    lightyellow = '\033[93m'
+    lightblue = '\033[94m'
+    lightmagenta = '\033[95m'
+    lightcyan = '\033[96m'
+    
+    background_black = '\033[40m'
+    background_red = '\033[41m'
+    background_green = '\033[42m'
+    background_yellow = '\033[43m'
+    background_blue = '\033[44m'
+    background_magenta = '\033[45m'
+    background_cyan = '\033[46m'
+
+    reset = '\033[0m'
+
+def latest_release_dir(app_dir):
+    releases_dir = os.path.join(app_dir, "releases")
+
+    out = subprocess.check_output("ls -1t {} | head -1".format(releases_dir), shell=True).strip()
+    if runtime.v3(): out = out.decode('utf-8')
+
+    return os.path.join(releases_dir, out)
+
+def switch(release_dir):
+    release_dir = os.path.abspath(release_dir)
+    app_dir = os.path.dirname(os.path.dirname(release_dir))
+    current = os.path.join(app_dir, "current")
+    current_tmp = os.path.join(app_dir, "current.tmp")
+
+    # switch the current release
+    subprocess.check_call("ln -snf {} {}".format(release_dir, current_tmp),  shell=True)
+    os.rename(current_tmp, current)
+    return current
+
+def is_current(release_dir):
+    release_dir = os.path.abspath(release_dir)
+    releases_dir = os.path.dirname(release_dir)
+    app_dir = os.path.dirname(releases_dir)
+    current = os.path.join(app_dir, "current")
+    if not os.path.exists(current):
+        return False
+
+    current_target = os.path.realpath(current)
+    return current_target == release_dir
+
+def new_command(args):
+    app_dir = args.app_dir
+    app_name = os.path.basename(app_dir)
+    releases_dir = os.path.join(app_dir, "releases")
+    hooks_dir = os.path.join(app_dir, "hooks")
+
+    if not os.path.exists(app_dir):
+        os.makedirs(app_dir)
+        print("Created: {}".format(app_dir))
+    else:
+        print("Already exists: {}".format(app_dir))
+
+    first_release_dir = None
+
+    if not os.path.exists(releases_dir):
+        os.makedirs(releases_dir)
+        print("Created: {}".format(releases_dir))
+        
+        # create initial empty release
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        release_dir = os.path.join(releases_dir, ts)
+        os.makedirs(release_dir)
+
+        print("Created: {}".format(release_dir))
+        
+        # create readme file
+        tmpl = Template("""# $app_name
+
+""")
+        readme_file = os.path.join(release_dir, "README.md")
+        f = open(readme_file, 'w')
+        f.write(tmpl.substitute({
+            'app_name': app_name
+        }))
+        f.close()
+
+        first_release_dir = release_dir
+    else:
+        print("Already exists: {}".format(releases_dir))
+
+    if not os.path.exists(hooks_dir):
+        os.makedirs(hooks_dir)
+        print("Created: {}".format(hooks_dir))
+
+         # create post-release file
+        post_release = os.path.join(hooks_dir, "post-release")
+        f = open(post_release, 'w')
+        f.write("""#!/usr/bin/env bash
+set -e
+
+""")
+        f.close()
+        umask = os.umask(0)
+        os.chmod(post_release, 0o755)
+        os.umask(umask)
+
+        # create pre-switch file
+        pre_switch = os.path.join(hooks_dir, "pre-switch")
+        f = open(pre_switch, 'w')
+        f.write("""#!/usr/bin/env bash
+set -e
+        
+""")
+        f.close()
+        umask = os.umask(0)
+        os.chmod(pre_switch, 0o755)
+        os.umask(umask)
+
+        # create post-switch file
+        post_switch = os.path.join(hooks_dir, "post-switch")
+        f = open(post_switch, 'w')
+        f.write("""#!/usr/bin/env bash
+set -e
+        
+""")
+        f.close()
+        umask = os.umask(0)
+        os.chmod(post_switch, 0o755)
+        os.umask(umask)
+
+    else:
+        print("Already exists: {}".format(hooks_dir))
+            
+    if first_release_dir:
+        current = switch(first_release_dir)
+        print("Updated current: {}".format(os.path.basename(first_release_dir)))
+
+def release_command(args):
+    release_id =  args.name
+    if not release_id:
+        release_id = datetime.now().strftime("%Y%m%d%H%M%S")
+
+    src_dir = os.path.abspath(args.src_dir)
+    if not os.path.exists(src_dir):
+        abort("Not found {}".format(src_dir))
+
+    app_dir = os.path.abspath(args.app_dir)
+    releases_dir = os.path.join(app_dir, "releases")
+    release_dir = os.path.join(releases_dir, release_id)
+
+    if not os.path.exists(releases_dir):
+        abort("Not found {}".format(releases_dir))
+    
+    if os.path.exists(release_dir):
+        abort("Already exists {}".format(release_dir))
+
+    subprocess.check_call("cp -pr {} {} && touch {}".format(src_dir, release_dir, release_dir),  shell=True)    
+    print(release_id)
+
+    # run post hook
+    post_hook_file = os.path.abspath(os.path.join(os.path.join(app_dir, "hooks"), "post-release"))
+    if os.path.exists(post_hook_file):
+        subprocess.check_call("export APP_DIR={} && cd {} && {}".format(app_dir, release_dir, post_hook_file),  shell=True)
+        
+def tree_command(args):
+    subprocess.check_call("tree -L {} {}".format(args.L, args.app_dir),  shell=True)
+    
+def switch_command(args):
+    clean = args.clean
+
+    app_dir = os.path.abspath(args.app_dir)
+    app_name = os.path.basename(app_dir)
+    releases_dir = os.path.join(app_dir, "releases")
+
+    if not os.path.exists(app_dir):
+        abort("Not found {}".format(app_dir))
+
+    release_dir = latest_release_dir(app_dir)
+    if is_current(release_dir):
+        print("Nothing to do. {} is already current".format(os.path.basename(release_dir)))
+        return
+
+    # run pre hook
+    pre_hook_file = os.path.abspath(os.path.join(os.path.join(app_dir, "hooks"), "pre-switch"))
+    if os.path.exists(pre_hook_file):
+        subprocess.check_call("export APP_DIR={} && cd {} && {}".format(app_dir, release_dir, pre_hook_file),  shell=True)
+
+
+    current = switch(release_dir)
+    print("Updated current: {}".format(os.path.basename(release_dir)))
+
+    # run post hook
+    post_hook_file = os.path.abspath(os.path.join(os.path.join(app_dir, "hooks"), "post-switch"))
+    if os.path.exists(post_hook_file):
+        subprocess.check_call("export APP_DIR={} && cd {} && {}".format(app_dir, release_dir, post_hook_file),  shell=True)
+    
+    if clean:
+        keep = 0
+        out = subprocess.check_output("ls -1t {}".format(releases_dir),  shell=True).strip()
+        if runtime.v3(): out = out.decode('utf-8')
+        releases = out.split("\n")
+        count = 0
+        for release in releases:
+            release_dir = os.path.join(releases_dir, release)
+            if not is_current(release_dir):
+                count = count + 1
+                if count > keep:
+                        subprocess.check_call("rm -rf {}".format(release_dir),  shell=True)
+
+def clean_command(args):
+    app_dir = args.app_dir
+    app_name = os.path.basename(app_dir)
+    releases_dir = os.path.join(app_dir, "releases")
+
+    keep = args.keep
+    out = subprocess.check_output("ls -1t {}".format(releases_dir),  shell=True).strip()
+    if runtime.v3(): out = out.decode('utf-8')
+    releases = out.split("\n")
+    count = 0
+    for release in releases:
+        release_dir = os.path.join(releases_dir, release)
+        if not is_current(release_dir):
+            count = count + 1
+            if count > keep:
+                    subprocess.check_call("rm -rf {}".format(release_dir),  shell=True)
+                    print(release)
+
+def ts_command(args):
+    ts = datetime.now().strftime("%Y%m%d%H%M%S")
+    print(ts)
+
+
+# def load_config():
+  
+
+# main
+def main():
+    parser = argparse.ArgumentParser(
+        description="Sandbox manager for running applications.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+
+
+"""
+    )
+    subparsers = parser.add_subparsers(title='subcommands')
+
+    # new
+    parser_new = subparsers.add_parser('new', help='create new app directory structure')
+    parser_new.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_new.set_defaults(func=new_command)
+
+    # tree
+    parser_tree = subparsers.add_parser('tree', help='show directory tree')
+    parser_tree.add_argument('-L', type=int, default=2)
+    parser_tree.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_tree.set_defaults(func=tree_command)
+
+    # switch
+    parser_switch = subparsers.add_parser('switch', help='switch the current release')
+    parser_switch.add_argument("-c", "--clean", dest="clean", action="store_true", help="clean old releases after switching")
+    parser_switch.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_switch.set_defaults(func=switch_command)
+
+    # release
+    parser_release = subparsers.add_parser('release', help='deploy new release')
+    parser_release.add_argument('-n', '--name', dest="name", metavar="RELEASE_NAME", help="specify the release NAME.")
+    parser_release.add_argument('src_dir', metavar="SRC_DIR", help="specify the src directory path.")
+    parser_release.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_release.set_defaults(func=release_command)
+
+    # clean
+    parser_clean = subparsers.add_parser('clean', help='remove unused old releases')
+    parser_clean.add_argument('-k', "--keep", dest="keep", metavar="NUMBER", type=int, default=0, help="the number of releases that it keeps")
+    parser_clean.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_clean.set_defaults(func=clean_command)
+
+    # ts
+    parser_ts = subparsers.add_parser('ts', help='print new release timestamp')
+    parser_ts.set_defaults(func=ts_command)
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+    
+    args = parser.parse_args()
+    args.func(args)
+    
+if __name__ == '__main__': main()

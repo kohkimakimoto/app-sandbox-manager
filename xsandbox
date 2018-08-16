@@ -69,6 +69,9 @@ def latest_release_dir(sandbox_dir):
     out = subprocess.check_output("ls -1t {} | head -1".format(releases_dir), shell=True).strip()
     if runtime.v3(): out = out.decode('utf-8')
 
+    if out == "":
+        abort("No releases")
+
     return os.path.join(releases_dir, out)
 
 def switch(release_dir, sandbox_dir):
@@ -218,8 +221,6 @@ def rebuild_command(args):
 
     # print("Version: {}".format(config['version']))
 
-
-
 def release_command(args):
     release_id =  args.name
     if not release_id:
@@ -273,9 +274,11 @@ def switch_command(args):
     if not os.path.exists(sandbox_dir):
         abort("Not found {}".format(sandbox_dir))
 
-    release_dir = latest_release_dir(sandbox_dir)
+    release_dir = ""
     if dir_path:
         release_dir = dir_path
+    else:
+        release_dir = latest_release_dir(sandbox_dir)
 
     if is_current(release_dir):
         print("Nothing to do. {} is already current".format(os.path.basename(release_dir)))

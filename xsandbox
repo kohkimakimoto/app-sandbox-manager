@@ -3,6 +3,7 @@ from __future__ import division, print_function, absolute_import, unicode_litera
 import argparse
 import os
 import sys
+import json
 import subprocess
 import platform
 from datetime import datetime
@@ -62,8 +63,8 @@ class colors:
 
     reset = '\033[0m'
 
-def latest_release_dir(app_dir):
-    releases_dir = os.path.join(app_dir, "releases")
+def latest_release_dir(sandbox_dir):
+    releases_dir = os.path.join(sandbox_dir, "releases")
 
     out = subprocess.check_output("ls -1t {} | head -1".format(releases_dir), shell=True).strip()
     if runtime.v3(): out = out.decode('utf-8')
@@ -72,9 +73,9 @@ def latest_release_dir(app_dir):
 
 def switch(release_dir):
     release_dir = os.path.abspath(release_dir)
-    app_dir = os.path.dirname(os.path.dirname(release_dir))
-    current = os.path.join(app_dir, "current")
-    current_tmp = os.path.join(app_dir, "current.tmp")
+    sandbox_dir = os.path.dirname(os.path.dirname(release_dir))
+    current = os.path.join(sandbox_dir, "current")
+    current_tmp = os.path.join(sandbox_dir, "current.tmp")
 
     # switch the current release
     subprocess.check_call("ln -snf {} {}".format(release_dir, current_tmp),  shell=True)
@@ -84,8 +85,8 @@ def switch(release_dir):
 def is_current(release_dir):
     release_dir = os.path.abspath(release_dir)
     releases_dir = os.path.dirname(release_dir)
-    app_dir = os.path.dirname(releases_dir)
-    current = os.path.join(app_dir, "current")
+    sandbox_dir = os.path.dirname(releases_dir)
+    current = os.path.join(sandbox_dir, "current")
     if not os.path.exists(current):
         return False
 
@@ -93,17 +94,27 @@ def is_current(release_dir):
     return current_target == release_dir
 
 def new_command(args):
-    app_dir = args.app_dir
-    app_name = os.path.basename(app_dir)
-    releases_dir = os.path.join(app_dir, "releases")
-    hooks_dir = os.path.join(app_dir, "hooks")
+    spec_file =  args.spec_file
+    sandbox_dir = args.sandbox_dir
+    sandbox_name = os.path.basename(sandbox_dir)
+    releases_dir = os.path.join(sandbox_dir, "releases")
+    hooks_dir = os.path.join(sandbox_dir, "hooks")
+    sandbox_config_file = os.path.join(sandbox_dir, "xsandbox.json")
 
-    if not os.path.exists(app_dir):
-        os.makedirs(app_dir)
-        print("Created: {}".format(app_dir))
+    if not os.path.exists(sandbox_dir):
+        os.makedirs(sandbox_dir)
+        print("Created: {}".format(sandbox_dir))
     else:
-        print("Already exists: {}".format(app_dir))
+        print("Already exists: {}".format(sandbox_dir))
 
+    if not os.path.exists(sandbox_config_file):
+        f = open(sandbox_config_file, 'w')
+        f.write(json.dumps({
+            'version': 1
+        }))
+        f.close()
+
+        
     first_release_dir = None
 
     if not os.path.exists(releases_dir):
@@ -118,13 +129,13 @@ def new_command(args):
         print("Created: {}".format(release_dir))
         
         # create readme file
-        tmpl = Template("""# $app_name
+        tmpl = Template("""# $sandbox_name
 
 """)
         readme_file = os.path.join(release_dir, "README.md")
         f = open(readme_file, 'w')
         f.write(tmpl.substitute({
-            'app_name': app_name
+            'sandbox_name': sandbox_name
         }))
         f.close()
 
@@ -175,6 +186,14 @@ set -e
     else:
         print("Already exists: {}".format(hooks_dir))
             
+
+    if spec_file:
+        spec_file_path = os.path.abspath(spec_file)
+        if os.path.exists(spec_file_path):
+            subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, spec_file_path),  shell=True)
+        else:
+            abort("Not found {}".format(spec_file_path))
+
     if first_release_dir:
         current = switch(first_release_dir)
         print("Updated current: {}".format(os.path.basename(first_release_dir)))
@@ -188,8 +207,8 @@ def release_command(args):
     if not os.path.exists(src_dir):
         abort("Not found {}".format(src_dir))
 
-    app_dir = os.path.abspath(args.app_dir)
-    releases_dir = os.path.join(app_dir, "releases")
+    sandbox_dir = os.path.abspath(args.sandbox_dir)
+    releases_dir = os.path.join(sandbox_dir, "releases")
     release_dir = os.path.join(releases_dir, release_id)
 
     if not os.path.exists(releases_dir):
@@ -202,41 +221,54 @@ def release_command(args):
     print(release_id)
 
     # run post hook
-    post_hook_file = os.path.abspath(os.path.join(os.path.join(app_dir, "hooks"), "post-release"))
+    post_hook_file = os.path.abspath(os.path.join(os.path.join(sandbox_dir, "hooks"), "post-release"))
     if os.path.exists(post_hook_file):
-        subprocess.check_call("export APP_DIR={} && cd {} && {}".format(app_dir, release_dir, post_hook_file),  shell=True)
+        subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, post_hook_file),  shell=True)
         
 def tree_command(args):
-    subprocess.check_call("tree -L {} {}".format(args.L, args.app_dir),  shell=True)
-    
+    subprocess.check_call("tree -L {} {}".format(args.L, args.sandbox_dir),  shell=True)
+
+def info_command(args):
+    sandbox_dir = os.path.abspath(args.sandbox_dir)
+    sandbox_config_file = os.path.join(sandbox_dir, "xsandbox.json")
+
+    if not os.path.exists(sandbox_config_file):
+        abort("Not found {}".format(sandbox_config_file))
+
+    f = open(sandbox_config_file, 'r')
+    config = json.load(f)
+    f.close()
+
+    print("Version: {}".format(config['version']))
+
 def switch_command(args):
     clean = args.clean
 
-    app_dir = os.path.abspath(args.app_dir)
-    app_name = os.path.basename(app_dir)
-    releases_dir = os.path.join(app_dir, "releases")
+    sandbox_dir = os.path.abspath(args.sandbox_dir)
+    sandbox_name = os.path.basename(sandbox_dir)
+    releases_dir = os.path.join(sandbox_dir, "releases")
 
-    if not os.path.exists(app_dir):
-        abort("Not found {}".format(app_dir))
+    if not os.path.exists(sandbox_dir):
+        abort("Not found {}".format(sandbox_dir))
 
-    release_dir = latest_release_dir(app_dir)
+    release_dir = latest_release_dir(sandbox_dir)
     if is_current(release_dir):
         print("Nothing to do. {} is already current".format(os.path.basename(release_dir)))
         return
 
     # run pre hook
-    pre_hook_file = os.path.abspath(os.path.join(os.path.join(app_dir, "hooks"), "pre-switch"))
+    pre_hook_file = os.path.abspath(os.path.join(os.path.join(sandbox_dir, "hooks"), "pre-switch"))
     if os.path.exists(pre_hook_file):
-        subprocess.check_call("export APP_DIR={} && cd {} && {}".format(app_dir, release_dir, pre_hook_file),  shell=True)
+        subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, pre_hook_file),  shell=True)
 
 
     current = switch(release_dir)
     print("Updated current: {}".format(os.path.basename(release_dir)))
 
     # run post hook
-    post_hook_file = os.path.abspath(os.path.join(os.path.join(app_dir, "hooks"), "post-switch"))
+    post_hook_file = os.path.abspath(os.path.join(os.path.join(sandbox_dir, "hooks"), "post-switch"))
     if os.path.exists(post_hook_file):
-        subprocess.check_call("export APP_DIR={} && cd {} && {}".format(app_dir, release_dir, post_hook_file),  shell=True)
+        subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, post_hook_file),  shell=True)
     
     if clean:
         keep = 0
@@ -252,9 +284,9 @@ def switch_command(args):
                         subprocess.check_call("rm -rf {}".format(release_dir),  shell=True)
 
 def clean_command(args):
-    app_dir = args.app_dir
-    app_name = os.path.basename(app_dir)
-    releases_dir = os.path.join(app_dir, "releases")
+    sandbox_dir = args.sandbox_dir
+    sandbox_name = os.path.basename(sandbox_dir)
+    releases_dir = os.path.join(sandbox_dir, "releases")
 
     keep = args.keep
     out = subprocess.check_output("ls -1t {}".format(releases_dir),  shell=True).strip()
@@ -273,10 +305,6 @@ def ts_command(args):
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
     print(ts)
 
-
-# def load_config():
-  
-
 # main
 def main():
     parser = argparse.ArgumentParser(
@@ -290,33 +318,39 @@ def main():
     subparsers = parser.add_subparsers(title='subcommands')
 
     # new
-    parser_new = subparsers.add_parser('new', help='create new app directory structure')
-    parser_new.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_new = subparsers.add_parser('new', help='create new sandbox directory structure')
+    parser_new.add_argument('-s', dest="spec_file", metavar="SPEC_FILE", help="specify the sandbox spec file.")
+    parser_new.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_new.set_defaults(func=new_command)
 
     # tree
-    parser_tree = subparsers.add_parser('tree', help='show directory tree')
+    parser_tree = subparsers.add_parser('tree', help='show sandbox directory tree')
     parser_tree.add_argument('-L', type=int, default=2)
-    parser_tree.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_tree.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_tree.set_defaults(func=tree_command)
+
+    # info
+    parser_info = subparsers.add_parser('info', help='show sandbox info')
+    parser_info.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
+    parser_info.set_defaults(func=info_command)
 
     # switch
     parser_switch = subparsers.add_parser('switch', help='switch the current release')
     parser_switch.add_argument("-c", "--clean", dest="clean", action="store_true", help="clean old releases after switching")
-    parser_switch.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_switch.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_switch.set_defaults(func=switch_command)
 
     # release
     parser_release = subparsers.add_parser('release', help='deploy new release')
     parser_release.add_argument('-n', '--name', dest="name", metavar="RELEASE_NAME", help="specify the release NAME.")
     parser_release.add_argument('src_dir', metavar="SRC_DIR", help="specify the src directory path.")
-    parser_release.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_release.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_release.set_defaults(func=release_command)
 
     # clean
     parser_clean = subparsers.add_parser('clean', help='remove unused old releases')
     parser_clean.add_argument('-k', "--keep", dest="keep", metavar="NUMBER", type=int, default=0, help="the number of releases that it keeps")
-    parser_clean.add_argument('app_dir', metavar="APP_DIR", help="specify the app directory path.")
+    parser_clean.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_clean.set_defaults(func=clean_command)
 
     # ts

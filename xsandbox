@@ -110,6 +110,7 @@ def build_sandbox(build_file, sandbox_dir, rebuild):
 
     if rebuild:
         subprocess.check_call("""
+            export XSANDBOX_BUILD=1
             export XSANDBOX_SANDBOX_DIR={}
             export XSANDBOX_SANDBOX_NAME={} 
             export XSANDBOX_SANDBOX_HOOKS_POST_RELESE={}
@@ -120,6 +121,7 @@ def build_sandbox(build_file, sandbox_dir, rebuild):
         """.format(sandbox_dir, sandbox_name, post_release, pre_switch, post_switch, sandbox_dir, build_file),  shell=True)
     else:
         subprocess.check_call("""
+            export XSANDBOX_BUILD=1
             export XSANDBOX_SANDBOX_DIR={}
             export XSANDBOX_SANDBOX_NAME={} 
             export XSANDBOX_SANDBOX_HOOKS_POST_RELESE={}

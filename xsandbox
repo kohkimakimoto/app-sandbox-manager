@@ -71,9 +71,8 @@ def latest_release_dir(sandbox_dir):
 
     return os.path.join(releases_dir, out)
 
-def switch(release_dir):
+def switch(release_dir, sandbox_dir):
     release_dir = os.path.abspath(release_dir)
-    sandbox_dir = os.path.dirname(os.path.dirname(release_dir))
     current = os.path.join(sandbox_dir, "current")
     current_tmp = os.path.join(sandbox_dir, "current.tmp")
 
@@ -201,10 +200,6 @@ set -e
 
     build_sandbox(build_file, sandbox_dir, False)
 
-    # if first_release_dir:
-    #     current = switch(first_release_dir)
-    #     print("Updated current: {}".format(os.path.basename(first_release_dir)))
-
 def rebuild_command(args):
     build_file =  args.build_file
     sandbox_dir = args.sandbox_dir
@@ -269,7 +264,8 @@ def destroy_command(args):
 
 def switch_command(args):
     clean = args.clean
-
+    dir_path = args.dir
+    
     sandbox_dir = os.path.abspath(args.sandbox_dir)
     sandbox_name = os.path.basename(sandbox_dir)
     releases_dir = os.path.join(sandbox_dir, "releases")
@@ -278,6 +274,9 @@ def switch_command(args):
         abort("Not found {}".format(sandbox_dir))
 
     release_dir = latest_release_dir(sandbox_dir)
+    if dir_path:
+        release_dir = dir_path
+
     if is_current(release_dir):
         print("Nothing to do. {} is already current".format(os.path.basename(release_dir)))
         return
@@ -287,8 +286,7 @@ def switch_command(args):
     if os.path.exists(pre_hook_file):
         subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, pre_hook_file),  shell=True)
 
-
-    current = switch(release_dir)
+    current = switch(release_dir, sandbox_dir)
     print("Updated current: {}".format(os.path.basename(release_dir)))
 
     # run post hook
@@ -361,20 +359,15 @@ def main():
     parser_tree.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_tree.set_defaults(func=tree_command)
 
-    # # info
-    # parser_info = subparsers.add_parser('info', help='show sandbox info')
-    # parser_info.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
-    # parser_info.set_defaults(func=info_command)
-
     # destroy
     parser_destroy = subparsers.add_parser('destroy', help='destroy a sandbox')
     parser_destroy.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_destroy.set_defaults(func=destroy_command)
 
-
     # switch
     parser_switch = subparsers.add_parser('switch', help='switch the current release')
     parser_switch.add_argument("-c", "--clean", dest="clean", action="store_true", help="clean old releases after switching")
+    parser_switch.add_argument('-d', "--dir", dest="dir", metavar="PATH", help="specify the directory path to link current.")
     parser_switch.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_switch.set_defaults(func=switch_command)
 

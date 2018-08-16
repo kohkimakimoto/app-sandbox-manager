@@ -93,13 +93,37 @@ def is_current(release_dir):
     current_target = os.path.realpath(current)
     return current_target == release_dir
 
+def build_sandbox(build_file, sandbox_dir, rebuild):
+    if not build_file:
+        return
+
+    build_file_path = os.path.abspath(build_file)
+    if not os.path.exists(build_file_path):
+        abort("Not found {}".format(build_file_path))
+
+    sandbox_dir = os.path.abspath(sandbox_dir)
+    sandbox_name = os.path.basename(sandbox_dir)
+    hooks_dir = os.path.join(sandbox_dir, "hooks")
+    post_release = os.path.join(hooks_dir, "post-release")
+    pre_switch = os.path.join(hooks_dir, "pre-switch")
+    post_switch = os.path.join(hooks_dir, "post-switch")
+    subprocess.check_call("""
+        export XSANDBOX_SANDBOX_DIR={}
+        export XSANDBOX_SANDBOX_NAME={} 
+        export XSANDBOX_SANDBOX_HOOKS_POST_RELESE={}
+        export XSANDBOX_SANDBOX_HOOKS_PRE_SWITCH={}
+        export XSANDBOX_SANDBOX_HOOKS_POST_SWITCH={}
+        cd {} && {}
+    """.format(sandbox_dir, sandbox_name, post_release, pre_switch, post_switch, sandbox_dir, build_file_path),  shell=True)
+
+ 
 def new_command(args):
     build_file =  args.build_file
     sandbox_dir = args.sandbox_dir
     sandbox_name = os.path.basename(sandbox_dir)
     releases_dir = os.path.join(sandbox_dir, "releases")
     hooks_dir = os.path.join(sandbox_dir, "hooks")
-    sandbox_config_file = os.path.join(sandbox_dir, "xsandbox.json")
+    # sandbox_config_file = os.path.join(sandbox_dir, "xsandbox.json")
 
     if not os.path.exists(sandbox_dir):
         os.makedirs(sandbox_dir)
@@ -107,11 +131,11 @@ def new_command(args):
     else:
         abort("The sandbox has already existed: {}".format(sandbox_dir))
 
-    f = open(sandbox_config_file, 'w')
-    f.write(json.dumps({
-        'version': 1
-    }))
-    f.close()
+    # f = open(sandbox_config_file, 'w')
+    # f.write(json.dumps({
+    #     'version': 1
+    # }))
+    # f.close()
 
     if not os.path.exists(releases_dir):
         os.makedirs(releases_dir)
@@ -162,16 +186,31 @@ set -e
     else:
         print("Already exists: {}".format(hooks_dir))
 
-    if build_file:
-        build_file_path = os.path.abspath(build_file)
-        if os.path.exists(build_file_path):
-            subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, build_file_path),  shell=True)
-        else:
-            abort("Not found {}".format(build_file_path))
+    build_sandbox(build_file, sandbox_dir, False)
 
     # if first_release_dir:
     #     current = switch(first_release_dir)
     #     print("Updated current: {}".format(os.path.basename(first_release_dir)))
+
+def rebuild_command(args):
+    build_file =  args.build_file
+    sandbox_dir = args.sandbox_dir
+
+    if not os.path.exists(sandbox_dir):
+        abort("Not found: {}".format(sandbox_dir))
+
+    build_sandbox(build_file, sandbox_dir, True)
+        
+    # if not os.path.exists(sandbox_config_file):
+    #     abort("Not found: {}".format(sandbox_config_file))
+
+    # f = open(sandbox_config_file, 'r')
+    # config = json.load(f)
+    # f.close()
+
+    # print("Version: {}".format(config['version']))
+
+
 
 def release_command(args):
     release_id =  args.name
@@ -201,26 +240,16 @@ def release_command(args):
         subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, post_hook_file),  shell=True)
         
 def tree_command(args):
-    subprocess.check_call("tree -L {} {}".format(args.L, args.sandbox_dir),  shell=True)
-
-def info_command(args):
     sandbox_dir = os.path.abspath(args.sandbox_dir)
-    sandbox_config_file = os.path.join(sandbox_dir, "xsandbox.json")
+    if not os.path.exists(sandbox_dir):
+        abort("Not found {}".format(sandbox_dir))
 
-    if not os.path.exists(sandbox_config_file):
-        abort("Not found {}".format(sandbox_config_file))
-
-    f = open(sandbox_config_file, 'r')
-    config = json.load(f)
-    f.close()
-
-    print("Version: {}".format(config['version']))
+    subprocess.check_call("tree -L {} {}".format(args.L, args.sandbox_dir),  shell=True)
 
 def destroy_command(args):
     sandbox_dir = os.path.abspath(args.sandbox_dir)
-    sandbox_config_file = os.path.join(sandbox_dir, "xsandbox.json")
-    if not os.path.exists(sandbox_config_file):
-        abort("Not found {}".format(sandbox_config_file))
+    if not os.path.exists(sandbox_dir):
+        abort("Not found {}".format(sandbox_dir))
 
     subprocess.check_call("rm -rf {}".format(sandbox_dir),  shell=True)
     print("Deleted : {}".format(sandbox_dir))
@@ -303,9 +332,15 @@ def main():
 
     # new
     parser_new = subparsers.add_parser('new', help='create new sandbox')
-    parser_new.add_argument('-s', dest="build_file", metavar="BUILD_FILE", help="specify the sandbox build file.")
+    parser_new.add_argument('-b', "--build-file", dest="build_file", metavar="BUILD_FILE", help="specify the sandbox build file.")
     parser_new.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_new.set_defaults(func=new_command)
+
+    # rebuild
+    parser_rebuild = subparsers.add_parser('rebuild', help='rebuild a sandbox')
+    parser_rebuild.add_argument('-b', "--build-file", dest="build_file", metavar="BUILD_FILE", help="specify the sandbox build file.")
+    parser_rebuild.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
+    parser_rebuild.set_defaults(func=rebuild_command)
 
     # tree
     parser_tree = subparsers.add_parser('tree', help='show sandbox directory tree')
@@ -313,12 +348,12 @@ def main():
     parser_tree.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_tree.set_defaults(func=tree_command)
 
-    # info
-    parser_info = subparsers.add_parser('info', help='show sandbox info')
-    parser_info.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
-    parser_info.set_defaults(func=info_command)
+    # # info
+    # parser_info = subparsers.add_parser('info', help='show sandbox info')
+    # parser_info.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
+    # parser_info.set_defaults(func=info_command)
 
-   # info
+    # destroy
     parser_destroy = subparsers.add_parser('destroy', help='destroy a sandbox')
     parser_destroy.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_destroy.set_defaults(func=destroy_command)

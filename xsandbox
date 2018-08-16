@@ -97,9 +97,9 @@ def build_sandbox(build_file, sandbox_dir, rebuild):
     if not build_file:
         return
 
-    build_file_path = os.path.abspath(build_file)
-    if not os.path.exists(build_file_path):
-        abort("Not found {}".format(build_file_path))
+    # build_file_path = os.path.abspath(build_file)
+    # if not os.path.exists(build_file_path):
+    #     abort("Not found {}".format(build_file_path))
 
     sandbox_dir = os.path.abspath(sandbox_dir)
     sandbox_name = os.path.basename(sandbox_dir)
@@ -107,15 +107,26 @@ def build_sandbox(build_file, sandbox_dir, rebuild):
     post_release = os.path.join(hooks_dir, "post-release")
     pre_switch = os.path.join(hooks_dir, "pre-switch")
     post_switch = os.path.join(hooks_dir, "post-switch")
-    subprocess.check_call("""
-        export XSANDBOX_SANDBOX_DIR={}
-        export XSANDBOX_SANDBOX_NAME={} 
-        export XSANDBOX_SANDBOX_HOOKS_POST_RELESE={}
-        export XSANDBOX_SANDBOX_HOOKS_PRE_SWITCH={}
-        export XSANDBOX_SANDBOX_HOOKS_POST_SWITCH={}
-        cd {} && {}
-    """.format(sandbox_dir, sandbox_name, post_release, pre_switch, post_switch, sandbox_dir, build_file_path),  shell=True)
 
+    if rebuild:
+        subprocess.check_call("""
+            export XSANDBOX_SANDBOX_DIR={}
+            export XSANDBOX_SANDBOX_NAME={} 
+            export XSANDBOX_SANDBOX_HOOKS_POST_RELESE={}
+            export XSANDBOX_SANDBOX_HOOKS_PRE_SWITCH={}
+            export XSANDBOX_SANDBOX_HOOKS_POST_SWITCH={}
+            export XSANDBOX_REBUILD=1
+            cd {} && {}
+        """.format(sandbox_dir, sandbox_name, post_release, pre_switch, post_switch, sandbox_dir, build_file),  shell=True)
+    else:
+        subprocess.check_call("""
+            export XSANDBOX_SANDBOX_DIR={}
+            export XSANDBOX_SANDBOX_NAME={} 
+            export XSANDBOX_SANDBOX_HOOKS_POST_RELESE={}
+            export XSANDBOX_SANDBOX_HOOKS_PRE_SWITCH={}
+            export XSANDBOX_SANDBOX_HOOKS_POST_SWITCH={}
+            cd {} && {}
+        """.format(sandbox_dir, sandbox_name, post_release, pre_switch, post_switch, sandbox_dir, build_file),  shell=True)
  
 def new_command(args):
     build_file =  args.build_file
@@ -332,13 +343,13 @@ def main():
 
     # new
     parser_new = subparsers.add_parser('new', help='create new sandbox')
-    parser_new.add_argument('-b', "--build-file", dest="build_file", metavar="BUILD_FILE", help="specify the sandbox build file.")
+    parser_new.add_argument('-b', "--buildfile", dest="build_file", metavar="BUILD_FILE", help="specify the sandbox build file.")
     parser_new.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_new.set_defaults(func=new_command)
 
     # rebuild
     parser_rebuild = subparsers.add_parser('rebuild', help='rebuild a sandbox')
-    parser_rebuild.add_argument('-b', "--build-file", dest="build_file", metavar="BUILD_FILE", help="specify the sandbox build file.")
+    parser_rebuild.add_argument('-b', "--buildfile", dest="build_file", metavar="BUILD_FILE", help="specify the sandbox build file.")
     parser_rebuild.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_rebuild.set_defaults(func=rebuild_command)
 

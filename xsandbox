@@ -94,7 +94,7 @@ def is_current(release_dir):
     return current_target == release_dir
 
 def new_command(args):
-    spec_file =  args.spec_file
+    build_file =  args.build_file
     sandbox_dir = args.sandbox_dir
     sandbox_name = os.path.basename(sandbox_dir)
     releases_dir = os.path.join(sandbox_dir, "releases")
@@ -105,41 +105,17 @@ def new_command(args):
         os.makedirs(sandbox_dir)
         print("Created: {}".format(sandbox_dir))
     else:
-        print("Already exists: {}".format(sandbox_dir))
+        abort("The sandbox has already existed: {}".format(sandbox_dir))
 
-    if not os.path.exists(sandbox_config_file):
-        f = open(sandbox_config_file, 'w')
-        f.write(json.dumps({
-            'version': 1
-        }))
-        f.close()
-
-        
-    first_release_dir = None
+    f = open(sandbox_config_file, 'w')
+    f.write(json.dumps({
+        'version': 1
+    }))
+    f.close()
 
     if not os.path.exists(releases_dir):
         os.makedirs(releases_dir)
         print("Created: {}".format(releases_dir))
-        
-        # create initial empty release
-        ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        release_dir = os.path.join(releases_dir, ts)
-        os.makedirs(release_dir)
-
-        print("Created: {}".format(release_dir))
-        
-        # create readme file
-        tmpl = Template("""# $sandbox_name
-
-""")
-        readme_file = os.path.join(release_dir, "README.md")
-        f = open(readme_file, 'w')
-        f.write(tmpl.substitute({
-            'sandbox_name': sandbox_name
-        }))
-        f.close()
-
-        first_release_dir = release_dir
     else:
         print("Already exists: {}".format(releases_dir))
 
@@ -185,18 +161,17 @@ set -e
 
     else:
         print("Already exists: {}".format(hooks_dir))
-            
 
-    if spec_file:
-        spec_file_path = os.path.abspath(spec_file)
-        if os.path.exists(spec_file_path):
-            subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, spec_file_path),  shell=True)
+    if build_file:
+        build_file_path = os.path.abspath(build_file)
+        if os.path.exists(build_file_path):
+            subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, build_file_path),  shell=True)
         else:
-            abort("Not found {}".format(spec_file_path))
+            abort("Not found {}".format(build_file_path))
 
-    if first_release_dir:
-        current = switch(first_release_dir)
-        print("Updated current: {}".format(os.path.basename(first_release_dir)))
+    # if first_release_dir:
+    #     current = switch(first_release_dir)
+    #     print("Updated current: {}".format(os.path.basename(first_release_dir)))
 
 def release_command(args):
     release_id =  args.name
@@ -240,6 +215,15 @@ def info_command(args):
     f.close()
 
     print("Version: {}".format(config['version']))
+
+def destroy_command(args):
+    sandbox_dir = os.path.abspath(args.sandbox_dir)
+    sandbox_config_file = os.path.join(sandbox_dir, "xsandbox.json")
+    if not os.path.exists(sandbox_config_file):
+        abort("Not found {}".format(sandbox_config_file))
+
+    subprocess.check_call("rm -rf {}".format(sandbox_dir),  shell=True)
+    print("Deleted : {}".format(sandbox_dir))
 
 def switch_command(args):
     clean = args.clean
@@ -318,8 +302,8 @@ def main():
     subparsers = parser.add_subparsers(title='subcommands')
 
     # new
-    parser_new = subparsers.add_parser('new', help='create new sandbox directory structure')
-    parser_new.add_argument('-s', dest="spec_file", metavar="SPEC_FILE", help="specify the sandbox spec file.")
+    parser_new = subparsers.add_parser('new', help='create new sandbox')
+    parser_new.add_argument('-s', dest="build_file", metavar="BUILD_FILE", help="specify the sandbox build file.")
     parser_new.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_new.set_defaults(func=new_command)
 
@@ -334,6 +318,12 @@ def main():
     parser_info.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_info.set_defaults(func=info_command)
 
+   # info
+    parser_destroy = subparsers.add_parser('destroy', help='destroy a sandbox')
+    parser_destroy.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
+    parser_destroy.set_defaults(func=destroy_command)
+
+
     # switch
     parser_switch = subparsers.add_parser('switch', help='switch the current release')
     parser_switch.add_argument("-c", "--clean", dest="clean", action="store_true", help="clean old releases after switching")
@@ -341,7 +331,7 @@ def main():
     parser_switch.set_defaults(func=switch_command)
 
     # release
-    parser_release = subparsers.add_parser('release', help='deploy new release')
+    parser_release = subparsers.add_parser('release', help='deploy new release to a sandbox')
     parser_release.add_argument('-n', '--name', dest="name", metavar="RELEASE_NAME", help="specify the release NAME.")
     parser_release.add_argument('src_dir', metavar="SRC_DIR", help="specify the src directory path.")
     parser_release.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")

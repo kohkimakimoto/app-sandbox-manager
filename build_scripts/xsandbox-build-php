@@ -40,6 +40,25 @@ if [[ -z "$XSANDBOX_BUILD" ]]; then
 fi
 
 # main
+if [[ "$(uname)" = "Darwin" ]]; then
+    # for mac
+
+
+
+
+fi
+
+cat << EOF > $XSANDBOX_SANDBOX_HOOKS_POST_SWITCH
+#!/usr/bin/env bash
+
+# echo "Switched: $XSANDBOX_SANDBOX_NAME"
+
+
+
+EOF
+
+
+
 
 
 

@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -e
+
+progname=$(basename $0)
+
+if [ "${TERM:-dumb}" != "dumb" ]; then
+    txtunderline=$(tput sgr 0 1)     # Underline
+    txtbold=$(tput bold)             # Bold
+    txtred=$(tput setaf 1)           # red
+    txtgreen=$(tput setaf 2)         # green
+    txtyellow=$(tput setaf 3)        # yellow
+    txtblue=$(tput setaf 4)          # blue
+    txtreset=$(tput sgr0)            # Reset
+else
+    txtunderline=""
+    txtbold=""
+    txtred=""
+    txtgreen=""
+    txtyellow=""
+    txtblue=$""
+    txtreset=""
+fi
+
+abort() {
+  { if [ "$#" -eq 0 ]; then cat -
+    else echo "${txtred}${progname} error: $*${txtreset}"
+    fi
+  } >&2
+  exit 1
+}
+
+error_info() {
+    echo "${txtred}fail! the command exited with status $?${txtreset}"
+}
+
+trap error_info ERR
+
+if [[ -z "$XSANDBOX_BUILD" ]]; then
+    abort "This script must be run by the xsandbox."
+fi
+
+# main
+if [[ "$(uname)" = "Darwin" ]]; then
+    # for mac
+
+
+
+
+fi
+
+cat << EOF > $XSANDBOX_SANDBOX_HOOKS_POST_SWITCH
+#!/usr/bin/env bash
+
+# echo "Switched: $XSANDBOX_SANDBOX_NAME"
+
+
+
+EOF
+
+
+
+
+
+
+# printenv | grep XSANDBOX

@@ -16,4 +16,5 @@ npm-debug.log
 
 /build/outputs/*
 
+.xsandbox-dev/
 !.gitkeep

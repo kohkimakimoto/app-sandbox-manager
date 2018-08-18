@@ -130,60 +130,11 @@ def new_command(args):
     else:
         abort("The sandbox has already existed: {}".format(sandbox_dir))
 
-    # f = open(sandbox_config_file, 'w')
-    # f.write(json.dumps({
-    #     'version': 1
-    # }))
-    # f.close()
-
     if not os.path.exists(releases_dir):
         os.makedirs(releases_dir)
         print("Created: {}".format(releases_dir))
     else:
         print("Already exists: {}".format(releases_dir))
-
-#     if not os.path.exists(hooks_dir):
-#         os.makedirs(hooks_dir)
-#         print("Created: {}".format(hooks_dir))
-
-#          # create post-release file
-#         post_release = os.path.join(hooks_dir, "post-release")
-#         f = open(post_release, 'w')
-#         f.write("""#!/usr/bin/env bash
-# set -e
-
-# """)
-#         f.close()
-#         umask = os.umask(0)
-#         os.chmod(post_release, 0o755)
-#         os.umask(umask)
-
-#         # create pre-switch file
-#         pre_switch = os.path.join(hooks_dir, "pre-switch")
-#         f = open(pre_switch, 'w')
-#         f.write("""#!/usr/bin/env bash
-# set -e
-        
-# """)
-#         f.close()
-#         umask = os.umask(0)
-#         os.chmod(pre_switch, 0o755)
-#         os.umask(umask)
-
-#         # create post-switch file
-#         post_switch = os.path.join(hooks_dir, "post-switch")
-#         f = open(post_switch, 'w')
-#         f.write("""#!/usr/bin/env bash
-# set -e
-        
-# """)
-#         f.close()
-#         umask = os.umask(0)
-#         os.chmod(post_switch, 0o755)
-#         os.umask(umask)
-
-#     else:
-#         print("Already exists: {}".format(hooks_dir))
 
     build_sandbox(build_script, sandbox_dir, False)
 

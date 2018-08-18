@@ -99,46 +99,30 @@ def build_sandbox(build_script, sandbox_dir, update):
     if not build_script:
         return
 
-    # build_script_path = os.path.abspath(build_script)
-    # if not os.path.exists(build_script_path):
-    #     abort("Not found {}".format(build_script_path))
-
     sandbox_dir = os.path.abspath(sandbox_dir)
     sandbox_name = os.path.basename(sandbox_dir)
-    hooks_dir = os.path.join(sandbox_dir, "hooks")
-    post_release = os.path.join(hooks_dir, "post-release")
-    pre_switch = os.path.join(hooks_dir, "pre-switch")
-    post_switch = os.path.join(hooks_dir, "post-switch")
 
     if update:
         subprocess.check_call("""
             export XSANDBOX_BUILD=1
             export XSANDBOX_SANDBOX_DIR={}
             export XSANDBOX_SANDBOX_NAME={} 
-            export XSANDBOX_SANDBOX_HOOKS_POST_RELESE={}
-            export XSANDBOX_SANDBOX_HOOKS_PRE_SWITCH={}
-            export XSANDBOX_SANDBOX_HOOKS_POST_SWITCH={}
             export XSANDBOX_REBUILD=1
-            cd {} && {}
-        """.format(sandbox_dir, sandbox_name, post_release, pre_switch, post_switch, sandbox_dir, build_script),  shell=True)
+            {}
+        """.format(sandbox_dir, sandbox_name, build_script),  shell=True)
     else:
         subprocess.check_call("""
             export XSANDBOX_BUILD=1
             export XSANDBOX_SANDBOX_DIR={}
             export XSANDBOX_SANDBOX_NAME={} 
-            export XSANDBOX_SANDBOX_HOOKS_POST_RELESE={}
-            export XSANDBOX_SANDBOX_HOOKS_PRE_SWITCH={}
-            export XSANDBOX_SANDBOX_HOOKS_POST_SWITCH={}
-            cd {} && {}
-        """.format(sandbox_dir, sandbox_name, post_release, pre_switch, post_switch, sandbox_dir, build_script),  shell=True)
+            {}
+        """.format(sandbox_dir, sandbox_name, build_script),  shell=True)
  
 def new_command(args):
     build_script =  args.build_script
     sandbox_dir = args.sandbox_dir
     sandbox_name = os.path.basename(sandbox_dir)
     releases_dir = os.path.join(sandbox_dir, "releases")
-    hooks_dir = os.path.join(sandbox_dir, "hooks")
-    # sandbox_config_file = os.path.join(sandbox_dir, "xsandbox.json")
 
     if not os.path.exists(sandbox_dir):
         os.makedirs(sandbox_dir)
@@ -158,48 +142,48 @@ def new_command(args):
     else:
         print("Already exists: {}".format(releases_dir))
 
-    if not os.path.exists(hooks_dir):
-        os.makedirs(hooks_dir)
-        print("Created: {}".format(hooks_dir))
+#     if not os.path.exists(hooks_dir):
+#         os.makedirs(hooks_dir)
+#         print("Created: {}".format(hooks_dir))
 
-         # create post-release file
-        post_release = os.path.join(hooks_dir, "post-release")
-        f = open(post_release, 'w')
-        f.write("""#!/usr/bin/env bash
-set -e
+#          # create post-release file
+#         post_release = os.path.join(hooks_dir, "post-release")
+#         f = open(post_release, 'w')
+#         f.write("""#!/usr/bin/env bash
+# set -e
 
-""")
-        f.close()
-        umask = os.umask(0)
-        os.chmod(post_release, 0o755)
-        os.umask(umask)
+# """)
+#         f.close()
+#         umask = os.umask(0)
+#         os.chmod(post_release, 0o755)
+#         os.umask(umask)
 
-        # create pre-switch file
-        pre_switch = os.path.join(hooks_dir, "pre-switch")
-        f = open(pre_switch, 'w')
-        f.write("""#!/usr/bin/env bash
-set -e
+#         # create pre-switch file
+#         pre_switch = os.path.join(hooks_dir, "pre-switch")
+#         f = open(pre_switch, 'w')
+#         f.write("""#!/usr/bin/env bash
+# set -e
         
-""")
-        f.close()
-        umask = os.umask(0)
-        os.chmod(pre_switch, 0o755)
-        os.umask(umask)
+# """)
+#         f.close()
+#         umask = os.umask(0)
+#         os.chmod(pre_switch, 0o755)
+#         os.umask(umask)
 
-        # create post-switch file
-        post_switch = os.path.join(hooks_dir, "post-switch")
-        f = open(post_switch, 'w')
-        f.write("""#!/usr/bin/env bash
-set -e
+#         # create post-switch file
+#         post_switch = os.path.join(hooks_dir, "post-switch")
+#         f = open(post_switch, 'w')
+#         f.write("""#!/usr/bin/env bash
+# set -e
         
-""")
-        f.close()
-        umask = os.umask(0)
-        os.chmod(post_switch, 0o755)
-        os.umask(umask)
+# """)
+#         f.close()
+#         umask = os.umask(0)
+#         os.chmod(post_switch, 0o755)
+#         os.umask(umask)
 
-    else:
-        print("Already exists: {}".format(hooks_dir))
+#     else:
+#         print("Already exists: {}".format(hooks_dir))
 
     build_sandbox(build_script, sandbox_dir, False)
 
@@ -211,17 +195,11 @@ def update_command(args):
         abort("Not found: {}".format(sandbox_dir))
 
     build_sandbox(build_script, sandbox_dir, True)
-        
-    # if not os.path.exists(sandbox_config_file):
-    #     abort("Not found: {}".format(sandbox_config_file))
-
-    # f = open(sandbox_config_file, 'r')
-    # config = json.load(f)
-    # f.close()
-
-    # print("Version: {}".format(config['version']))
 
 def release_command(args):
+    pre_handler =  args.pre_handler
+    post_handler =  args.post_handler
+
     release_id =  args.name
     if not release_id:
         release_id = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -231,6 +209,7 @@ def release_command(args):
         abort("Not found {}".format(src_dir))
 
     sandbox_dir = os.path.abspath(args.sandbox_dir)
+    sandbox_name = os.path.basename(sandbox_dir)
     releases_dir = os.path.join(sandbox_dir, "releases")
     release_dir = os.path.join(releases_dir, release_id)
 
@@ -240,14 +219,32 @@ def release_command(args):
     if os.path.exists(release_dir):
         abort("Already exists {}".format(release_dir))
 
-    subprocess.check_call("cp -pr {} {} && touch {}".format(src_dir, release_dir, release_dir),  shell=True)    
+    # run pre hook
+    if pre_handler:
+        subprocess.check_call("""
+            export XSANDBOX_HOOK=1
+            export XSANDBOX_PRE_RELEASE_HOOK=1
+            export XSANDBOX_SANDBOX_DIR={}
+            export XSANDBOX_SANDBOX_NAME={}
+            export XSANDBOX_RELEASE_DIR={}
+            {}
+        """.format(sandbox_dir, sandbox_name, release_dir, pre_handler),  shell=True)
+
+    # release
+    subprocess.check_call("cp -pr {} {} && touch {}".format(src_dir, release_dir, release_dir),  shell=True)
     print(release_id)
 
     # run post hook
-    post_hook_file = os.path.abspath(os.path.join(os.path.join(sandbox_dir, "hooks"), "post-release"))
-    if os.path.exists(post_hook_file):
-        subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, post_hook_file),  shell=True)
-        
+    if post_handler:
+        subprocess.check_call("""
+            export XSANDBOX_HOOK=1
+            export XSANDBOX_POST_RELEASE_HOOK=1
+            export XSANDBOX_SANDBOX_DIR={}
+            export XSANDBOX_SANDBOX_NAME={}
+            export XSANDBOX_RELEASE_DIR={}
+            {}
+        """.format(sandbox_dir, sandbox_name, release_dir, post_handler),  shell=True)
+
 def tree_command(args):
     sandbox_dir = os.path.abspath(args.sandbox_dir)
     if not os.path.exists(sandbox_dir):
@@ -266,7 +263,9 @@ def destroy_command(args):
 def switch_command(args):
     clean = args.clean
     dir_path = args.dir
-    
+    pre_handler =  args.pre_handler
+    post_handler =  args.post_handler
+
     sandbox_dir = os.path.abspath(args.sandbox_dir)
     sandbox_name = os.path.basename(sandbox_dir)
     releases_dir = os.path.join(sandbox_dir, "releases")
@@ -285,18 +284,30 @@ def switch_command(args):
         return
 
     # run pre hook
-    pre_hook_file = os.path.abspath(os.path.join(os.path.join(sandbox_dir, "hooks"), "pre-switch"))
-    if os.path.exists(pre_hook_file):
-        subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, pre_hook_file),  shell=True)
+    if pre_handler:
+        subprocess.check_call("""
+            export XSANDBOX_HOOK=1
+            export XSANDBOX_PRE_SWITCH_HOOK=1
+            export XSANDBOX_SANDBOX_DIR={}
+            export XSANDBOX_SANDBOX_NAME={}
+            export XSANDBOX_RELEASE_DIR={}
+            {}
+        """.format(sandbox_dir, sandbox_name, release_dir, pre_handler),  shell=True)
 
     current = switch(release_dir, sandbox_dir)
     print("Switched: {}".format(os.path.basename(release_dir)))
 
     # run post hook
-    post_hook_file = os.path.abspath(os.path.join(os.path.join(sandbox_dir, "hooks"), "post-switch"))
-    if os.path.exists(post_hook_file):
-        subprocess.check_call("export SANDBOX_DIR={} && cd {} && {}".format(sandbox_dir, release_dir, post_hook_file),  shell=True)
-    
+    if post_handler:
+        subprocess.check_call("""
+            export XSANDBOX_HOOK=1
+            export XSANDBOX_POST_SWITCH_HOOK=1
+            export XSANDBOX_SANDBOX_DIR={}
+            export XSANDBOX_SANDBOX_NAME={}
+            export XSANDBOX_RELEASE_DIR={}
+            {}
+        """.format(sandbox_dir, sandbox_name, release_dir, post_handler),  shell=True)
+
     if clean:
         keep = 0
         out = subprocess.check_output("ls -1t {}".format(releases_dir),  shell=True).strip()
@@ -371,12 +382,16 @@ def main():
     parser_switch = subparsers.add_parser('switch', help='switch the current release')
     parser_switch.add_argument("-c", "--clean", dest="clean", action="store_true", help="clean old releases after switching")
     parser_switch.add_argument('-d', "--dir", dest="dir", metavar="PATH", help="specify the directory path to link current.")
+    parser_switch.add_argument('--pre', dest="pre_handler", metavar="PRE_HANDLER", help="handler for the pre switch hook.")
+    parser_switch.add_argument('--post', dest="post_handler", metavar="POST_HANDLER", help="handler for the post switch hook.")
     parser_switch.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_switch.set_defaults(func=switch_command)
 
     # release
     parser_release = subparsers.add_parser('release', help='deploy new release to a sandbox')
     parser_release.add_argument('-n', '--name', dest="name", metavar="RELEASE_NAME", help="specify the release NAME.")
+    parser_release.add_argument('--pre', dest="pre_handler", metavar="PRE_HANDLER", help="handler for the pre release hook.")
+    parser_release.add_argument('--post', dest="post_handler", metavar="POST_HANDLER", help="handler for the post release hook.")
     parser_release.add_argument('src_dir', metavar="SRC_DIR", help="specify the src directory path.")
     parser_release.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_release.set_defaults(func=release_command)

@@ -3,18 +3,8 @@ Thumbs.db
 .tags*
 ._*
 *.iml
-/vendor
-.vagrant
 .vscode/
-.buildsh/
 node_modules/
-npm-debug.log
-.go-packages/
-/.coverage.html
-/working
 /tmp
 
-/build/outputs/*
-
-.xsandbox-dev/
 !.gitkeep

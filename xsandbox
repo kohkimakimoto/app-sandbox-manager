@@ -14,6 +14,8 @@ except ImportError:
     # fallback for python2
     import ConfigParser
 
+VERSION = "0.1.0"
+
 # general functions
 def abort(s):
     print(colors.red + s + colors.reset, file=sys.stderr)
@@ -294,6 +296,9 @@ def ts_command(args):
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
     print(ts)
 
+def version_command(args):
+    print("xsandbox " + VERSION)
+
 # main
 def main():
     parser = argparse.ArgumentParser(
@@ -357,11 +362,14 @@ def main():
     parser_ts = subparsers.add_parser('ts', help='print new release timestamp')
     parser_ts.set_defaults(func=ts_command)
 
+    parser_ts = subparsers.add_parser('version', help='print the xsandbox version')
+    parser_ts.set_defaults(func=version_command)
+
     if len(sys.argv) == 1:
         parser.print_help()
-        sys.exit(1)
-    
+        sys.exit(0)
+
     args = parser.parse_args()
     args.func(args)
-    
+
 if __name__ == '__main__': main()

@@ -297,7 +297,7 @@ def ts_command(args):
     print(ts)
 
 def version_command(args):
-    print("xsandbox " + VERSION)
+    print("app-sandbox-manager " + VERSION)
 
 # main
 def main():
@@ -362,7 +362,7 @@ def main():
     parser_ts = subparsers.add_parser('ts', help='print new release timestamp')
     parser_ts.set_defaults(func=ts_command)
 
-    parser_ts = subparsers.add_parser('version', help='print the xsandbox version')
+    parser_ts = subparsers.add_parser('version', help='print the app-sandbox-manager version')
     parser_ts.set_defaults(func=version_command)
 
     if len(sys.argv) == 1:

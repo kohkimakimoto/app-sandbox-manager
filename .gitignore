@@ -3,7 +3,9 @@ Thumbs.db
 .tags*
 ._*
 *.iml
+.vagrant
 .vscode/
+build/outputs/*
 node_modules/
 /tmp
 

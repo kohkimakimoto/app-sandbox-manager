@@ -14,7 +14,7 @@ except ImportError:
     # fallback for python2
     import ConfigParser
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 # general functions
 def abort(s):
@@ -312,13 +312,13 @@ def main():
     subparsers = parser.add_subparsers(title='subcommands')
 
     # new
-    parser_new = subparsers.add_parser('new', help='create new sandbox')
+    parser_new = subparsers.add_parser('new', help='create new sandbox directory')
     parser_new.add_argument('-b', "--build", dest="build_script", metavar="BUILD_SCRIPT", help="specify the sandbox build file.")
     parser_new.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_new.set_defaults(func=new_command)
 
     # update
-    parser_update = subparsers.add_parser('update', help='update a sandbox')
+    parser_update = subparsers.add_parser('update', help='update a sandbox directory')
     parser_update.add_argument('-b', "--build", dest="build_script", metavar="BUILD_SCRIPT", help="specify the sandbox build file.")
     parser_update.add_argument('sandbox_dir', metavar="SANDBOX_DIR", help="specify the sandbox directory path.")
     parser_update.set_defaults(func=update_command)
@@ -362,8 +362,8 @@ def main():
     parser_ts = subparsers.add_parser('ts', help='print new release timestamp')
     parser_ts.set_defaults(func=ts_command)
 
-    parser_ts = subparsers.add_parser('version', help='print the app-sandbox-manager version')
-    parser_ts.set_defaults(func=version_command)
+    parser_version = subparsers.add_parser('version', help='print the app-sandbox-manager version')
+    parser_version.set_defaults(func=version_command)
 
     if len(sys.argv) == 1:
         parser.print_help()

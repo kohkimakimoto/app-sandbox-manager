@@ -7,7 +7,7 @@ Group:          Development/Tools
 License:        MIT
 # this is a dummy file to create RPM without tar.
 Source0:        empty.tar.bz2
-Source1:        app-sandbox-manager
+Source1:        appsandbox-manager
 BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 %description
@@ -31,6 +31,6 @@ rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
-%attr(755, root, root) %{_bindir}/app-sandbox-manager
+%attr(755, root, root) %{_bindir}/appsandbox-manager
 
 %doc

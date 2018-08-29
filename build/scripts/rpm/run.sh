@@ -13,7 +13,7 @@ platform=el${RHEL_VERSION}
 
 cp -pr build/scripts/rpm/SPECS $HOME/rpmbuild/
 cp -pr build/scripts/rpm/SOURCES $HOME/rpmbuild/
-cp -pr app-sandbox-manager $HOME/rpmbuild/SOURCES/
+cp -pr appsandbox-manager $HOME/rpmbuild/SOURCES/
 
 echo "Building RPM..."
 cd $HOME
